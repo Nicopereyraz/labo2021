@@ -82,6 +82,13 @@ EnriquecerDataset <- function( dataset , arch_destino )
   dataset[ , mvr_mpagosdolares       := mv_mpagosdolares / mv_mlimitecompra ]
   dataset[ , mvr_mconsumototal       := mv_mconsumototal  / mv_mlimitecompra ]
   dataset[ , mvr_mpagominimo         := mv_mpagominimo  / mv_mlimitecompra ]
+  
+  #agrego variables mias
+  dataset[ , ratio_payroll           := cpayroll_trx  / mpayroll ]
+  dataset[ , ratio_cantidad          := ctrx_quarter  / ctarjeta_visa_transacciones ]
+  dataset[ , ratio_monto             := mcuentas_saldo  / mactivos_margen ]
+  
+  
 
   #valvula de seguridad para evitar valores infinitos
   #paso los infinitos a NULOS
