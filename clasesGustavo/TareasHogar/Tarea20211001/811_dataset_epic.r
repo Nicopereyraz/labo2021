@@ -218,32 +218,175 @@ Corregir  <- function( dataset )
 
 AgregarVariables  <- function( dataset )
 {
+  #Ajuste por inflacion
+  j <- 1 #valor indice para hacer el ciclo
+  
+  #Campos pesos son los campos en moneda pesos que será ajustados a valores del IPC, llevados a valores de base Enero 2021
+  
+  campos_pesos <- c("Master_madelantopesos","mcheques_emitidos_rechazados","mcheques_depositados_rechazados","mcheques_depositados","mforex_buy","mtarjeta_master_descuentos","mtarjeta_visa_descuentos","mcajeros_propios_descuentos","mpagodeservicios","mttarjeta_visa_debitos_automaticos","mpayroll2","minversion2","minversion1_pesos","mplazo_fijo_pesos","mprestamos_hipotecarios","mcaja_ahorro_adicional","mcuenta_corriente_adicional","mpasivos_margen","mforex_sell","Master_mpagado","mcheques_emitidos","mprestamos_prendarios","Visa_madelantopesos","mttarjeta_master_debitos_automaticos","matm_other","Master_mconsumototal","mdescubierto_preacordado","Visa_mpagado","Master_mconsumospesos","Master_mpagospesos","mtarjeta_master_consumo","Master_msaldototal","Master_msaldopesos","Master_mpagominimo","matm","mtransferencias_emitidas","mpagomiscuentas","Master_mlimitecompra","Visa_mfinanciacion_limite","Visa_mlimitecompra","mextraccion_autoservicio","Visa_mpagospesos","mcomisiones","Master_mfinanciacion_limite","mcuenta_debitos_automaticos","mcomisiones_otras","mrentabilidad","Visa_mconsumototal","mautoservicio","mcomisiones_mantenimiento","mcuenta_corriente","Visa_msaldopesos","mtransferencias_recibidas","Visa_mpagominimo","mprestamos_personales","Visa_msaldototal","mrentabilidad_annual","mpayroll","mactivos_margen","mtarjeta_visa_consumo","mcuentas_saldo","mcaja_ahorro")
+  IPC <- c(3.011803351323,2.96437337728642,2.88925280437273,2.81878322377827,2.74735206995933,2.6961256820013,2.59492365928903,2.52424480475587,2.42482690178277,2.27469690598759,2.16431675165327,2.10332045836081,2.04603157428094,1.99030308782193,1.91744035435639,1.82961865873701,1.77288629722579,1.72124883225804,1.67763044079731,1.64312481958601,1.58144833453899,1.49475267914838,1.44840375886471,1.39135807767984,1.34042204015399,1.31542889122079,1.2921698342051,1.24726817973465,1.23004751453121,1.21186947244455,1.18810732592603,1.16939697433664,1.13754569488,1.10656196,1.06811,1.037,1)
+  
+  for (i in unique(dataset$foto_mes)){
+    dataset[foto_mes==i, paste0( campos_pesos, "_ajust") := .SD * IPC[j], .SD = campos_pesos]
+    j=j+1
+  }
+  
+  #Se eliminan los campos no ajustados para reducir memoria
+  dataset[,c(campos_pesos):=NULL]
+  
+  #Reemplazo los nombre con _ajust por los nombre anteriores
+  setnames(dataset,paste0( campos_pesos, "_ajust"),campos_pesos)
+  
+  
+  
+  
+  
+  
+  
   #INICIO de la seccion donde se deben hacer cambios con variables nuevas
   #se crean los nuevos campos para MasterCard  y Visa, teniendo en cuenta los NA's
   #varias formas de combinar Visa_status y Master_status
   dataset[ , mv_status01       := pmax( Master_status,  Visa_status, na.rm = TRUE) ]
+  dataset[ , mv_status02       := Master_status +  Visa_status ]
   dataset[ , mv_status03       := pmax( ifelse( is.na(Master_status), 10, Master_status) , ifelse( is.na(Visa_status), 10, Visa_status) ) ]
+  dataset[ , mv_status04       := ifelse( is.na(Master_status), 10, Master_status)  +  ifelse( is.na(Visa_status), 10, Visa_status)  ]
+  dataset[ , mv_status05       := ifelse( is.na(Master_status), 10, Master_status)  +  100*ifelse( is.na(Visa_status), 10, Visa_status)  ]
+  
+  dataset[ , mv_status06       := ifelse( is.na(Visa_status), 
+                                          ifelse( is.na(Master_status), 10, Master_status), 
+                                          Visa_status)  ]
+  
+  dataset[ , mv_status07       := ifelse( is.na(Master_status), 
+                                          ifelse( is.na(Visa_status), 10, Visa_status), 
+                                          Master_status)  ]
+  
   
   #combino MasterCard y Visa
+  dataset[ , mv_mfinanciacion_limite := rowSums( cbind( Master_mfinanciacion_limite,  Visa_mfinanciacion_limite) , na.rm=TRUE ) ]
   
+  dataset[ , mv_Fvencimiento         := pmin( Master_Fvencimiento, Visa_Fvencimiento, na.rm = TRUE) ]
   dataset[ , mv_Finiciomora          := pmin( Master_Finiciomora, Visa_Finiciomora, na.rm = TRUE) ]
   dataset[ , mv_msaldototal          := rowSums( cbind( Master_msaldototal,  Visa_msaldototal) , na.rm=TRUE ) ]
   dataset[ , mv_msaldopesos          := rowSums( cbind( Master_msaldopesos,  Visa_msaldopesos) , na.rm=TRUE ) ]
+  dataset[ , mv_msaldodolares        := rowSums( cbind( Master_msaldodolares,  Visa_msaldodolares) , na.rm=TRUE ) ]
+  dataset[ , mv_mconsumospesos       := rowSums( cbind( Master_mconsumospesos,  Visa_mconsumospesos) , na.rm=TRUE ) ]
+  dataset[ , mv_mconsumosdolares     := rowSums( cbind( Master_mconsumosdolares,  Visa_mconsumosdolares) , na.rm=TRUE ) ]
+  dataset[ , mv_mlimitecompra        := rowSums( cbind( Master_mlimitecompra,  Visa_mlimitecompra) , na.rm=TRUE ) ]
   dataset[ , mv_madelantopesos       := rowSums( cbind( Master_madelantopesos,  Visa_madelantopesos) , na.rm=TRUE ) ]
   dataset[ , mv_madelantodolares     := rowSums( cbind( Master_madelantodolares,  Visa_madelantodolares) , na.rm=TRUE ) ]
+  dataset[ , mv_fultimo_cierre       := pmax( Master_fultimo_cierre, Visa_fultimo_cierre, na.rm = TRUE) ]
+  dataset[ , mv_mpagado              := rowSums( cbind( Master_mpagado,  Visa_mpagado) , na.rm=TRUE ) ]
   dataset[ , mv_mpagospesos          := rowSums( cbind( Master_mpagospesos,  Visa_mpagospesos) , na.rm=TRUE ) ]
   dataset[ , mv_mpagosdolares        := rowSums( cbind( Master_mpagosdolares,  Visa_mpagosdolares) , na.rm=TRUE ) ]
+  dataset[ , mv_fechaalta            := pmax( Master_fechaalta, Visa_fechaalta, na.rm = TRUE) ]
+  dataset[ , mv_mconsumototal        := rowSums( cbind( Master_mconsumototal,  Visa_mconsumototal) , na.rm=TRUE ) ]
+  dataset[ , mv_cconsumos            := rowSums( cbind( Master_cconsumos,  Visa_cconsumos) , na.rm=TRUE ) ]
   dataset[ , mv_cadelantosefectivo   := rowSums( cbind( Master_cadelantosefectivo,  Visa_cadelantosefectivo) , na.rm=TRUE ) ]
   dataset[ , mv_mpagominimo          := rowSums( cbind( Master_mpagominimo,  Visa_mpagominimo) , na.rm=TRUE ) ]
   
   #a partir de aqui juego con la suma de Mastercard y Visa
+  dataset[ , mvr_Master_mlimitecompra:= Master_mlimitecompra / mv_mlimitecompra ]
+  dataset[ , mvr_Visa_mlimitecompra  := Visa_mlimitecompra / mv_mlimitecompra ]
+  dataset[ , mvr_msaldototal         := mv_msaldototal / mv_mlimitecompra ]
+  dataset[ , mvr_msaldopesos         := mv_msaldopesos / mv_mlimitecompra ]
   dataset[ , mvr_msaldopesos2        := mv_msaldopesos / mv_msaldototal ]
+  dataset[ , mvr_msaldodolares       := mv_msaldodolares / mv_mlimitecompra ]
   dataset[ , mvr_msaldodolares2      := mv_msaldodolares / mv_msaldototal ]
+  dataset[ , mvr_mconsumospesos      := mv_mconsumospesos / mv_mlimitecompra ]
   dataset[ , mvr_mconsumosdolares    := mv_mconsumosdolares / mv_mlimitecompra ]
   dataset[ , mvr_madelantopesos      := mv_madelantopesos / mv_mlimitecompra ]
   dataset[ , mvr_madelantodolares    := mv_madelantodolares / mv_mlimitecompra ]
   dataset[ , mvr_mpagado             := mv_mpagado / mv_mlimitecompra ]
+  dataset[ , mvr_mpagospesos         := mv_mpagospesos / mv_mlimitecompra ]
+  dataset[ , mvr_mpagosdolares       := mv_mpagosdolares / mv_mlimitecompra ]
+  dataset[ , mvr_mconsumototal       := mv_mconsumototal  / mv_mlimitecompra ]
   dataset[ , mvr_mpagominimo         := mv_mpagominimo  / mv_mlimitecompra ]
+  
+  #Aqui debe usted agregar sus propias nuevas variables
+  
+  
+  #Mis propios Features pensados
+  
+  # suma caja de ahorro + cuenta corriente
+  dataset[ , mcacc        := mcaja_ahorro + mcuenta_corriente]
+  # Saldos total tarjetas / suma pagos mínimos 
+  dataset[ , mvr_saldototal_limitcomp := mv_msaldototal / mv_mpagominimo  ]
+  # Total pagado tarjetas sobre saldo total tarjeta
+  dataset[ , mvr_mpagadosaldo := mv_msaldototal / mv_mpagado  ]
+  # Total adeudado al banco
+  dataset[ , mdeudatot := mv_msaldototal - mv_mpagado + mprestamos_personales + cprestamos_prendarios + cprestamos_hipotecarios ]
+  # Cantidad total de transacciones principales
+  dataset[ , cant_transacciones := ctrx_quarter + ctarjeta_visa_transacciones + ctarjeta_master_transacciones + ctarjeta_debito_transacciones]
+  # Cantidad total debitos
+  dataset[ , cant_debitos := ctarjeta_visa_debitos_automaticos +ccuenta_debitos_automaticos +ctarjeta_master_debitos_automaticos]
+  # Cantidad Seguros
+  dataset[ , cant_seguros    := rowSums( cbind(cseguro_vida, cseguro_auto, cseguro_vivienda, cseguro_accidentes_personales) , na.rm=TRUE ) ]
+  
+  
+  #Mis propios Features combinando principales variables
+  
+  # Relación cant_transacciones con otras importantes variables (divido por esta)
+  dataset[ , r_cant_trans_1        := ctrx_quarter/cant_transacciones]
+  dataset[ , r_cant_trans_2        := cpayroll_trx/cant_transacciones]
+  dataset[ , r_cant_trans_3        := mdeudatot/cant_transacciones]
+  dataset[ , r_cant_trans_4        := mcaja_ahorro/cant_transacciones]
+  dataset[ , r_cant_trans_5        := mcuentas_saldo/cant_transacciones]
+  dataset[ , r_cant_trans_6        := mrentabilidad_annual/cant_transacciones]
+  dataset[ , r_cant_trans_7        := mactivos_margen/cant_transacciones]
+  dataset[ , r_cant_trans_8        := mtarjeta_visa_consumo/cant_transacciones]
+  dataset[ , r_cant_trans_9        := mpayroll/cant_transacciones]
+  
+  # Relación ctrx_quarter con otras importantes variables (divido por esta)
+  dataset[ , r_ctrx_quarter_1        := cpayroll_trx/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_2        := mdeudatot/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_3        := mcaja_ahorro/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_4        := mcuentas_saldo/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_5       := mrentabilidad_annual/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_6        := mactivos_margen/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_7        := mtarjeta_visa_consumo/ctrx_quarter]
+  dataset[ , r_ctrx_quarter_8        := mpayroll/ctrx_quarter]
+  
+  # Relación cpayroll_trx con otras importantes variables (divido por esta)
+  dataset[ , r_cpayroll_trx_1        := mdeudatot/cpayroll_trx]
+  dataset[ , r_cpayroll_trx_2        := mcaja_ahorro/cpayroll_trx]
+  dataset[ , r_cpayroll_trx_3        := mcuentas_saldo/cpayroll_trx]
+  dataset[ , r_cpayroll_trx_4       := mrentabilidad_annual/cpayroll_trx]
+  dataset[ , r_cpayroll_trx_5        := mactivos_margen/cpayroll_trx]
+  dataset[ , r_cpayroll_trx_6        := mtarjeta_visa_consumo/cpayroll_trx]
+  dataset[ , r_cpayroll_trx_7        := mpayroll/cpayroll_trx]
+  
+  # Relación mdeudatot con otras importantes variables (divido por las otras)
+  dataset[ , r_mdeudatot_1        := mdeudatot/mcaja_ahorro]
+  dataset[ , r_mdeudatot_2        := mdeudatot/mcuentas_saldo]
+  dataset[ , r_mdeudatot_3       := mdeudatot/mrentabilidad_annual]
+  dataset[ , r_mdeudatot_4        := mdeudatot/mactivos_margen]
+  dataset[ , r_mdeudatot_5        := mdeudatot/mtarjeta_visa_consumo]
+  dataset[ , r_mdeudatot_6        := mdeudatot/mpayroll]
+  
+  # Relación mcaja_ahorro con otras importantes variables (divido por las otras)
+  dataset[ , r_mcaja_ahorro_1        := mcaja_ahorro/mcuentas_saldo]
+  dataset[ , r_mcaja_ahorro_2       := mcaja_ahorro/mrentabilidad_annual]
+  dataset[ , r_mcaja_ahorro_3        := mcaja_ahorro/mactivos_margen]
+  dataset[ , r_mcaja_ahorro_4        := mcaja_ahorro/mtarjeta_visa_consumo]
+  dataset[ , r_mcaja_ahorro_5        := mcaja_ahorro/mpayroll]
+  
+  # Relación mcuentas_saldo con otras importantes variables (divido por las otras)
+  dataset[ , r_mcuentas_saldo_1       := mcuentas_saldo/mrentabilidad_annual]
+  dataset[ , r_mcuentas_saldo_2        := mcuentas_saldo/mactivos_margen]
+  dataset[ , r_mcuentas_saldo_3        := mcuentas_saldo/mtarjeta_visa_consumo]
+  dataset[ , r_mcuentas_saldo_4        := mcuentas_saldo/mpayroll]
+  
+  # Relación mrentabilidad_annual_saldo con otras importantes variables (divido por las otras)
+  dataset[ , r_mrentabilidad_annual_1        := mrentabilidad_annual/mactivos_margen]
+  dataset[ , r_mrentabilidad_annual_2        := mrentabilidad_annual/mtarjeta_visa_consumo]
+  dataset[ , r_mrentabilidad_annual_3        := mrentabilidad_annual/mpayroll]
+  
+  # Relación mactivos_margen con otras importantes variables (divido por las otras)
+  dataset[ , r_mactivos_margen_1        := mactivos_margen/mtarjeta_visa_consumo]
+  dataset[ , r_mactivos_margen_2        := mactivos_margen/mpayroll]
+  
+  # Relación mtarjeta_visa_consumo con otras importantes variables (divido por las otras)
+  dataset[ , r_mtarjeta_visa_consumo_1  := mtarjeta_visa_consumo/mpayroll]
   
   #Aqui debe usted agregar sus propias nuevas variables
   dataset[ , ratio_payroll           := cpayroll_trx  / mpayroll ]
